@@ -31,23 +31,23 @@ PROGRAM StaticAdvectionDiffusionEquation
   INTEGER(CMISSIntg), PARAMETER :: GeneratedMeshUserNumber=4
   INTEGER(CMISSIntg), PARAMETER :: MeshUserNumber=5
   INTEGER(CMISSIntg), PARAMETER :: DecompositionUserNumber=6
-  INTEGER(CMISSIntg), PARAMETER :: GeometricFieldUserNumber=7
-  INTEGER(CMISSIntg), PARAMETER :: EquationsSetFieldUserNumber=8
-  INTEGER(CMISSIntg), PARAMETER :: DependentFieldUserNumber=9
-  INTEGER(CMISSIntg), PARAMETER :: MaterialsFieldUserNumber=10
-  INTEGER(CMISSIntg), PARAMETER :: EquationsSetUserNumber=11
-  INTEGER(CMISSIntg), PARAMETER :: ProblemUserNumber=12
+  INTEGER(CMISSIntg), PARAMETER :: DecomposerUserNumber=7
+  INTEGER(CMISSIntg), PARAMETER :: GeometricFieldUserNumber=8
+  INTEGER(CMISSIntg), PARAMETER :: EquationsSetFieldUserNumber=9
+  INTEGER(CMISSIntg), PARAMETER :: DependentFieldUserNumber=10
+  INTEGER(CMISSIntg), PARAMETER :: MaterialsFieldUserNumber=11
+  INTEGER(CMISSIntg), PARAMETER :: EquationsSetUserNumber=12
+  INTEGER(CMISSIntg), PARAMETER :: ProblemUserNumber=13
   INTEGER(CMISSIntg), PARAMETER :: ControlLoopNode=0
-  INTEGER(CMISSIntg), PARAMETER :: IndependentFieldUserNumber=13
-  INTEGER(CMISSIntg), PARAMETER :: AnalyticFieldUserNumber=14
-  INTEGER(CMISSIntg), PARAMETER :: SourceFieldUserNumber=15
-
+  INTEGER(CMISSIntg), PARAMETER :: IndependentFieldUserNumber=14
+  INTEGER(CMISSIntg), PARAMETER :: AnalyticFieldUserNumber=15
+  INTEGER(CMISSIntg), PARAMETER :: SourceFieldUserNumber=16
+  
   !Program types
   
   !Program variables
 
   INTEGER(CMISSIntg) :: NUMBER_GLOBAL_X_ELEMENTS,NUMBER_GLOBAL_Y_ELEMENTS,NUMBER_GLOBAL_Z_ELEMENTS
-  INTEGER(CMISSIntg) :: NUMBER_OF_DOMAINS
   
   INTEGER(CMISSIntg) :: MPI_IERROR
   
@@ -59,6 +59,7 @@ PROGRAM StaticAdvectionDiffusionEquation
   TYPE(cmfe_ContextType) :: context
   TYPE(cmfe_CoordinateSystemType) :: CoordinateSystem
   TYPE(cmfe_DecompositionType) :: Decomposition
+  TYPE(cmfe_DecomposerType) :: Decomposer
   TYPE(cmfe_EquationsType) :: Equations
   TYPE(cmfe_EquationsSetType) :: EquationsSet
   TYPE(cmfe_FieldType) :: GeometricField,EquationsSetField,DependentField,MaterialsField,IndependentField,AnalyticField,SourceField
@@ -70,6 +71,7 @@ PROGRAM StaticAdvectionDiffusionEquation
   TYPE(cmfe_RegionType) :: Region,WorldRegion
   TYPE(cmfe_SolverType) :: Solver, LinearSolver
   TYPE(cmfe_SolverEquationsType) :: SolverEquations
+  TYPE(cmfe_WorkGroupType) :: worldWorkGroup
 
   LOGICAL :: EXPORT_FIELD,IMPORT_FIELD
  
@@ -81,7 +83,8 @@ PROGRAM StaticAdvectionDiffusionEquation
   
   !Generic CMISS variables
   
-  INTEGER(CMISSIntg) :: EquationsSetIndex,ssss
+  INTEGER(CMISSIntg) :: decompositionIndex,EquationsSetIndex
+  INTEGER(CMISSIntg) :: numberOfComputationNodes,computationNodeNumber
   INTEGER(CMISSIntg) :: FirstNodeNumber,LastNodeNumber
   INTEGER(CMISSIntg) :: Err
   
@@ -107,15 +110,22 @@ PROGRAM StaticAdvectionDiffusionEquation
   CALL cmfe_Region_Initialise(worldRegion,err)
   CALL cmfe_Context_WorldRegionGet(context,worldRegion,err)
 
+  !Get the number of computational nodes and this computational node number
+  CALL cmfe_ComputationEnvironment_Initialise(computationEnvironment,err)
+  CALL cmfe_Context_ComputationEnvironmentGet(context,computationEnvironment,err)
+  
+  CALL cmfe_WorkGroup_Initialise(worldWorkGroup,err)
+  CALL cmfe_ComputationEnvironment_WorldWorkGroupGet(computationEnvironment,worldWorkGroup,err)
+  CALL cmfe_WorkGroup_NumberOfGroupNodesGet(worldWorkGroup,numberOfComputationNodes,err)
+  CALL cmfe_WorkGroup_GroupNodeNumberGet(worldWorkGroup,computationNodeNumber,err)
+
   NUMBER_GLOBAL_X_ELEMENTS=80
   NUMBER_GLOBAL_Y_ELEMENTS=160
   NUMBER_GLOBAL_Z_ELEMENTS=0
-  NUMBER_OF_DOMAINS=1
 
   CALL MPI_BCAST(NUMBER_GLOBAL_X_ELEMENTS,1,MPI_INTEGER,0,MPI_COMM_WORLD,MPI_IERROR)
   CALL MPI_BCAST(NUMBER_GLOBAL_Y_ELEMENTS,1,MPI_INTEGER,0,MPI_COMM_WORLD,MPI_IERROR)
   CALL MPI_BCAST(NUMBER_GLOBAL_Z_ELEMENTS,1,MPI_INTEGER,0,MPI_COMM_WORLD,MPI_IERROR)
-  CALL MPI_BCAST(NUMBER_OF_DOMAINS,1,MPI_INTEGER,0,MPI_COMM_WORLD,MPI_IERROR)
 
   !-----------------------------------------------------------------------------------------------------------
   ! COORDINATE SYSTEM
@@ -195,11 +205,19 @@ PROGRAM StaticAdvectionDiffusionEquation
   !Create a decomposition
   CALL cmfe_Decomposition_Initialise(Decomposition,Err)
   CALL cmfe_Decomposition_CreateStart(DecompositionUserNumber,Mesh,Decomposition,Err)
-  !Set the decomposition to be a general decomposition with the specified number of domains
-  CALL cmfe_Decomposition_TypeSet(Decomposition,CMFE_DECOMPOSITION_CALCULATED_TYPE,Err)
-  CALL cmfe_Decomposition_NumberOfDomainsSet(Decomposition,NUMBER_OF_DOMAINS,Err)
   !Finish the decomposition
   CALL cmfe_Decomposition_CreateFinish(Decomposition,Err)
+  
+  !-----------------------------------------------------------------------------------------------------------
+  ! DECOMPOSER
+  !----------------------------------------------------------------------------------------------------------- 
+  
+  CALL cmfe_Decomposer_Initialise(decomposer,err)
+  CALL cmfe_Decomposer_CreateStart(decomposerUserNumber,region,worldWorkGroup,decomposer,err)
+  !Add in the decomposition
+  CALL cmfe_Decomposer_DecompositionAdd(decomposer,decomposition,decompositionIndex,err)
+  !Finish the decomposer
+  CALL cmfe_Decomposer_CreateFinish(decomposer,err)
   
   !-----------------------------------------------------------------------------------------------------------
   ! GEOMETRIC FIELD
