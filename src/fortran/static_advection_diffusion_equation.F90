@@ -243,7 +243,7 @@ PROGRAM StaticAdvectionDiffusionEquation
   CALL cmfe_Field_Initialise(EquationsSetField,Err)
   !Set equations_sets to be static advection-diffusion with constant source term
   CALL cmfe_EquationsSet_CreateStart(EquationsSetUserNumber,Region,GeometricField,[CMFE_EQUATIONS_SET_CLASSICAL_FIELD_CLASS, &
-    & CMFE_EQUATIONS_SET_ADVECTION_DIFFUSION_EQUATION_TYPE,CMFE_EQUATIONS_SET_CONSTANT_SOURCE_STATIC_ADVEC_DIFF_SUBTYPE], &
+    & CMFE_EQUATIONS_SET_ADVECTION_DIFFUSION_EQUATION_TYPE,CMFE_EQUATIONS_SET_GENERALISED_STATIC_ADVEC_DIFF_SUBTYPE], &
     & EquationsSetFieldUserNumber,EquationsSetField,EquationsSet,Err)
   CALL cmfe_EquationsSet_CreateFinish(EquationsSet,Err)
   
